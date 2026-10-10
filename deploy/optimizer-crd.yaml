@@ -1,0 +1,56 @@
+# K8-Optimizer Custom Resource Definition.
+# Declares the optimization intent for a workload. The in-cluster operator
+# reconciles this into right-sized requests (in-place resize or rolling
+# update) while the safety engine guarantees zero downtime.
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: optimizations.k8optimizer.aitech.tech
+spec:
+  group: k8optimizer.aitech.tech
+  names:
+    kind: Optimization
+    listKind: OptimizationList
+    plural: optimizations
+    singular: optimization
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required: [targetRef, policy]
+              properties:
+                targetRef:
+                  type: object
+                  required: [apiVersion, kind, name]
+                  properties:
+                    apiVersion: { type: string }
+                    kind: { type: string }
+                    name: { type: string }
+                policy:
+                  type: object
+                  properties:
+                    cpuPercentile: { type: number, default: 95 }
+                    cpuHeadroomPct: { type: number, default: 20 }
+                    memoryHeadroomPct: { type: number, default: 15 }
+                    maxReductionPct: { type: number, default: 90 }
+                    minConfidence: { type: number, default: 0.5 }
+                    minReplicas: { type: integer, default: 1 }
+                    maxReplicas: { type: integer, default: 100 }
+                    allowInPlaceResize: { type: boolean, default: true }
+                namespaceSelector:
+                  type: object
+                  additionalProperties: { type: string }
+            status:
+              type: object
+              properties:
+                lastRecommendation: { type: object, additionalProperties: true }
+                lastAppliedAt: { type: string, format: date-time }
+          subresources:
+            status: {}

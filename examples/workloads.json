@@ -1,0 +1,68 @@
+{
+  "workloads": [
+    {
+      "name": "checkout-svc",
+      "namespace": "prod",
+      "kind": "Deployment",
+      "replicas": 8,
+      "cpu_request_millis": 2000,
+      "cpu_limit_millis": 4000,
+      "memory_request_mib": 4096,
+      "memory_limit_mib": 8192,
+      "qos_class": "Burstable",
+      "allow_in_place_resize": true,
+      "requests_per_sec": 1200,
+      "capacity_per_replica_rps": 300,
+      "usage": [
+        {"cpu_millis": 250, "memory_mib": 900},
+        {"cpu_millis": 260, "memory_mib": 910},
+        {"cpu_millis": 240, "memory_mib": 890},
+        {"cpu_millis": 280, "memory_mib": 920},
+        {"cpu_millis": 300, "memory_mib": 930},
+        {"cpu_millis": 270, "memory_mib": 900},
+        {"cpu_millis": 290, "memory_mib": 940},
+        {"cpu_millis": 255, "memory_mib": 905},
+        {"cpu_millis": 265, "memory_mib": 915},
+        {"cpu_millis": 310, "memory_mib": 950},
+        {"cpu_millis": 275, "memory_mib": 905},
+        {"cpu_millis": 285, "memory_mib": 925},
+        {"cpu_millis": 260, "memory_mib": 910},
+        {"cpu_millis": 270, "memory_mib": 920},
+        {"cpu_millis": 295, "memory_mib": 935},
+        {"cpu_millis": 250, "memory_mib": 895},
+        {"cpu_millis": 290, "memory_mib": 940},
+        {"cpu_millis": 280, "memory_mib": 915},
+        {"cpu_millis": 260, "memory_mib": 905},
+        {"cpu_millis": 300, "memory_mib": 945},
+        {"cpu_millis": 255, "memory_mib": 900},
+        {"cpu_millis": 270, "memory_mib": 925},
+        {"cpu_millis": 285, "memory_mib": 930},
+        {"cpu_millis": 250, "memory_mib": 890}
+      ]
+    },
+    {
+      "name": "legacy-report",
+      "namespace": "batch",
+      "kind": "StatefulSet",
+      "replicas": 1,
+      "cpu_request_millis": 8000,
+      "memory_request_mib": 16384,
+      "qos_class": "Guaranteed",
+      "allow_in_place_resize": true,
+      "usage": [
+        {"cpu_millis": 400, "memory_mib": 2400},
+        {"cpu_millis": 420, "memory_mib": 2500},
+        {"cpu_millis": 410, "memory_mib": 2450},
+        {"cpu_millis": 430, "memory_mib": 2550},
+        {"cpu_millis": 400, "memory_mib": 2400},
+        {"cpu_millis": 415, "memory_mib": 2480},
+        {"cpu_millis": 425, "memory_mib": 2520},
+        {"cpu_millis": 405, "memory_mib": 2420},
+        {"cpu_millis": 420, "memory_mib": 2500},
+        {"cpu_millis": 410, "memory_mib": 2450},
+        {"cpu_millis": 430, "memory_mib": 2540},
+        {"cpu_millis": 400, "memory_mib": 2400}
+      ]
+    }
+  ]
+}

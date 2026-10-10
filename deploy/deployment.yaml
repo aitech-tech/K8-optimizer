@@ -1,0 +1,51 @@
+# K8-Optimizer operator + API deployment.
+# NOTE: the side-effect-free Python engine can run as a Service today; the
+# in-cluster controller that applies patches (pods/resize, scale) is the
+# operator image built from ./Dockerfile.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: k8optimizer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8optimizer
+  namespace: k8optimizer
+  labels:
+    app: k8optimizer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: k8optimizer
+  template:
+    metadata:
+      labels:
+        app: k8optimizer
+    spec:
+      serviceAccountName: k8optimizer
+      containers:
+        - name: api
+          image: ghcr.io/aitech-tech/k8-optimizer:latest
+          ports:
+            - containerPort: 8080
+              name: http
+          readinessProbe:
+            httpGet: { path: /health, port: 8080 }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: k8optimizer
+  namespace: k8optimizer
+spec:
+  selector:
+    app: k8optimizer
+  ports:
+    - port: 8080
+      targetPort: http
+      name: http

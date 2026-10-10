@@ -1,0 +1,20 @@
+# Example Optimization CR — attach the zero-downtime optimizer to a workload.
+apiVersion: k8optimizer.aitech.tech/v1alpha1
+kind: Optimization
+metadata:
+  name: checkout-svc
+  namespace: prod
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: checkout-svc
+  policy:
+    cpuPercentile: 95
+    cpuHeadroomPct: 20
+    memoryHeadroomPct: 15
+    maxReductionPct: 90
+    minConfidence: 0.5
+    minReplicas: 2
+    maxReplicas: 20
+    allowInPlaceResize: true

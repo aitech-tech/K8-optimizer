@@ -1,0 +1,49 @@
+# RBAC for the K8-Optimizer operator.
+# Scope is intentionally read-mostly plus the minimal mutations needed for
+# zero-downtime optimization: pod /resize (in-place), controller scale/patch,
+# and events for auditability.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: k8optimizer
+  namespace: k8optimizer
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: k8optimizer
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/resize"]
+    verbs: ["get", "list", "watch", "patch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "daemonsets", "replicasets"]
+    verbs: ["get", "list", "watch", "patch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["metrics.k8s.io", "custom.metrics.k8s.io", "external.metrics.k8s.io"]
+    resources: ["*"]
+    verbs: ["get", "list"]
+  - apiGroups: ["k8optimizer.aitech.tech"]
+    resources: ["optimizations", "optimizations/status"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: k8optimizer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: k8optimizer
+subjects:
+  - kind: ServiceAccount
+    name: k8optimizer
+    namespace: k8optimizer
