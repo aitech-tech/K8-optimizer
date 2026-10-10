@@ -13,14 +13,21 @@ from __future__ import annotations
 
 import json
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
 from typing import List, Optional
+from urllib.parse import parse_qs, urlparse
 
 from . import __version__
+from .api import Api, ApiError
 from .cost import CostConfig, report_workload
 from .models import QoSClass, UsageSample, Workload
 from .recommender import RecommenderConfig, recommend
 from .resize import PatchAction, build_plan
 from .safety import SafetyConfig, approve, effective_recommendation
+from .store import Store
+
+#: HTML dashboard asset, served at GET /.
+_DASHBOARD_PATH = Path(__file__).parent / "dashboard.html"
 
 
 def workload_from_dict(d: dict) -> Workload:
@@ -67,38 +74,114 @@ def evaluate(workloads: List[Workload]) -> dict:
 
 
 class Handler(BaseHTTPRequestHandler):
-    def _send(self, code: int, payload: dict) -> None:
-        body = json.dumps(payload).encode("utf-8")
+    api: Optional[Api] = None
+
+    def _send(self, code: int, payload) -> None:
+        if isinstance(payload, dict):
+            body = json.dumps(payload).encode("utf-8")
+            ctype = "application/json"
+        else:
+            body = payload
+            ctype = "text/html"
         self.send_response(code)
-        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
 
+    def _read_body(self) -> dict:
+        length = int(self.headers.get("Content-Length", 0))
+        raw = self.rfile.read(length)
+        return json.loads(raw) if raw else {}
+
+    def _run(self, fn, *args) -> None:
+        try:
+            self._send(200, fn(*args))
+        except ApiError as exc:
+            self._send(exc.status, {"error": exc.message})
+        except Exception as exc:  # noqa: BLE001
+            self._send(500, {"error": str(exc)})
+
+    # -- routes -----------------------------------------------------------
+    def _route_api(self) -> bool:
+        parsed = urlparse(self.path)
+        path = parsed.path
+        q = parse_qs(parsed.query)
+        hdrs = {k: v for k, v in self.headers.items()}
+        api = self.api
+        if api is None:
+            return False
+
+        if self.command == "POST" and path == "/api/login":
+            self._run(api.login, self._read_body())
+        elif self.command == "GET" and path == "/api/me":
+            self._run(api.me, hdrs)
+        elif self.command == "GET" and path == "/api/metrics":
+            self._run(api.metrics, hdrs)
+        elif self.command == "GET" and path.startswith("/api/logs/"):
+            kind = path.rsplit("/", 1)[-1]
+            limit = int(q.get("limit", ["100"])[0])
+            self._run(api.logs, hdrs, kind, limit)
+        elif self.command == "POST" and path == "/api/logs/errors":
+            self._run(api.log_error, hdrs, self._read_body())
+        elif self.command == "GET" and path == "/api/rca":
+            self._run(api.rca, hdrs)
+        elif self.command == "GET" and path == "/api/providers":
+            self._run(api.providers, hdrs)
+        elif self.command == "GET" and path == "/api/users":
+            self._run(api.list_users, hdrs)
+        elif self.command == "POST" and path == "/api/users":
+            self._run(api.create_user, hdrs, self._read_body())
+        elif self.command == "PUT" and path.endswith("/role"):
+            username = path.split("/")[3]
+            self._run(api.set_role, hdrs, username, self._read_body().get("role", "viewer"))
+        elif self.command == "PUT" and path.endswith("/permissions"):
+            username = path.split("/")[3]
+            self._run(api.set_permissions, hdrs, username,
+                      self._read_body().get("permissions", []))
+        else:
+            return False
+        return True
+
     def do_GET(self) -> None:
         if self.path == "/health":
             self._send(200, {"status": "ok", "version": __version__})
+        elif self.path == "/" or self.path == "/index.html":
+            self._send(200, _DASHBOARD_PATH.read_bytes())
+        elif self._route_api():
+            pass
         else:
             self._send(404, {"error": "not found"})
 
     def do_POST(self) -> None:
-        if self.path != "/recommend":
+        if self.path == "/recommend":
+            length = int(self.headers.get("Content-Length", 0))
+            raw = self.rfile.read(length)
+            try:
+                data = json.loads(raw)
+                workloads = [workload_from_dict(d) for d in data.get("workloads", [])]
+                self._send(200, evaluate(workloads))
+            except Exception as exc:  # noqa: BLE001
+                self._send(400, {"error": str(exc)})
+        elif self._route_api():
+            pass
+        else:
             self._send(404, {"error": "not found"})
-            return
-        length = int(self.headers.get("Content-Length", 0))
-        raw = self.rfile.read(length)
-        try:
-            data = json.loads(raw)
-            workloads = [workload_from_dict(d) for d in data.get("workloads", [])]
-            self._send(200, evaluate(workloads))
-        except Exception as exc:  # noqa: BLE001
-            self._send(400, {"error": str(exc)})
+
+    def do_PUT(self) -> None:
+        if self._route_api():
+            pass
+        else:
+            self._send(404, {"error": "not found"})
 
     def log_message(self, *args) -> None:
         pass
 
 
-def serve(host: str = "127.0.0.1", port: int = 8080) -> None:
+def serve(host: str = "127.0.0.1", port: int = 8080,
+          store: Optional[Store] = None) -> None:
+    store = store or Store("k8optimizer.db")
+    Handler.api = Api(store)
     httpd = HTTPServer((host, port), Handler)
     print(f"K8-Optimizer API v{__version__} listening on http://{host}:{port}")
     httpd.serve_forever()

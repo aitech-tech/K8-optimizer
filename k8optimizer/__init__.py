@@ -18,4 +18,10 @@ __all__ = [
     "safety",
     "cost",
     "resize",
+    "autoscaling",
+    "controller",
+    "providers",
+    "store",
+    "rca",
+    "api",
 ]

@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>K8-Optimizer — Autonomous FinOps &amp; Zero-Downtime Optimization</title>
+<style>
+:root{
+  --bg:#0b0f1a; --panel:#12182a; --panel2:#0f1524; --line:#1f2946;
+  --ink:#e8eefc; --muted:#8aa0c9; --accent:#5b8cff; --accent2:#22d3ee;
+  --good:#34d399; --warn:#fbbf24; --bad:#f87171; --violet:#a78bfa;
+}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(1200px 700px at 80% -10%,#16203f 0%,var(--bg) 55%);
+  color:var(--ink);font:14px/1.5 "Segoe UI",system-ui,-apple-system,sans-serif;min-height:100vh}
+a{color:var(--accent2)}
+.mono,td.num,th.num,code{font-family:"Cascadia Code",Consolas,monospace}
+/* top bar */
+header{display:flex;align-items:center;gap:16px;padding:14px 24px;
+  border-bottom:1px solid var(--line);background:rgba(11,15,26,.7);backdrop-filter:blur(8px);
+  position:sticky;top:0;z-index:10}
+.logo{font-size:18px;font-weight:700;letter-spacing:.5px}
+.logo .dot{color:var(--accent2)}
+.spacer{flex:1}
+#who{color:var(--muted);font-size:12px}
+button{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:8px 14px;
+  cursor:pointer;font-weight:600;font-size:13px}
+button:hover{filter:brightness(1.1)}
+button.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+button.danger{background:var(--bad)}
+nav{display:flex;gap:6px;padding:10px 24px;border-bottom:1px solid var(--line);
+  background:rgba(11,15,26,.5)}
+nav button{background:transparent;color:var(--muted);font-weight:600}
+nav button.on{background:var(--panel);color:var(--ink);box-shadow:inset 0 -2px 0 var(--accent)}
+main{padding:24px;max-width:1240px;margin:0 auto}
+/* cards */
+.grid{display:grid;gap:16px}
+.cols-4{grid-template-columns:repeat(4,1fr)}
+.cols-2{grid-template-columns:1fr 1fr}
+.cols-3{grid-template-columns:repeat(3,1fr)}
+@media(max-width:900px){.cols-4,.cols-3,.cols-2{grid-template-columns:1fr}}
+.card{background:linear-gradient(180deg,var(--panel) 0%,var(--panel2) 100%);
+  border:1px solid var(--line);border-radius:14px;padding:18px}
+.card h3{margin:0 0 12px;font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}
+.card h3 .tag{float:right;text-transform:none;letter-spacing:0;color:var(--accent2);font-size:11px}
+.stat{font-size:30px;font-weight:800;letter-spacing:.5px}
+.stat small{font-size:12px;font-weight:500;color:var(--muted)}
+.stat .unit{font-size:14px;color:var(--muted);font-weight:500}
+.delta-up{color:var(--good)} .delta-down{color:var(--bad)}
+/* tables */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{color:var(--muted);text-align:left;font-weight:600;padding:8px 10px;
+  border-bottom:1px solid var(--line);text-transform:uppercase;font-size:11px;letter-spacing:.6px}
+td{padding:8px 10px;border-bottom:1px solid var(--line)}
+tr:hover td{background:rgba(91,140,255,.05)}
+td.num,th.num{text-align:right}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700}
+.badge.good{background:rgba(52,211,153,.15);color:var(--good)}
+.badge.warn{background:rgba(251,191,36,.15);color:var(--warn)}
+.badge.bad{background:rgba(248,113,113,.15);color:var(--bad)}
+.badge.acc{background:rgba(91,140,255,.15);color:var(--accent)}
+.badge.vi{background:rgba(167,139,250,.15);color:var(--violet)}
+/* login */
+.login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh}
+.login{width:360px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:32px}
+.login h1{margin:0 0 4px;font-size:22px}
+.login p{color:var(--muted);margin:0 0 20px}
+.field{margin-bottom:14px}
+.field label{display:block;color:var(--muted);font-size:12px;margin-bottom:5px}
+input,select{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--ink);
+  border-radius:8px;padding:10px 12px;font-size:14px}
+input:focus,select:focus{outline:none;border-color:var(--accent)}
+.err{color:var(--bad);margin-top:10px;min-height:18px}
+/* charts */
+.bar-row{display:flex;align-items:center;gap:10px;margin:6px 0}
+.bar-row .lbl{width:130px;color:var(--muted);font-size:12px;flex-shrink:0}
+.bar-row .track{flex:1;height:14px;background:var(--bg);border-radius:7px;overflow:hidden}
+.bar-row .fill{height:100%;border-radius:7px;transition:width .6s ease}
+.bar-row .val{width:60px;text-align:right;font-size:12px;color:var(--ink)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px}
+.legend span{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:12px}
+.swatch{width:10px;height:10px;border-radius:3px;display:inline-block}
+svg text{fill:var(--muted);font-size:11px}
+.pill{display:inline-block;background:var(--bg);border:1px solid var(--line);border-radius:8px;
+  padding:4px 10px;margin:3px;font-size:12px}
+.toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap}
+.muted{color:var(--muted)}
+.pad-top{padding-top:10px}
+.hidden{display:none}
+.rca-item{border-left:3px solid var(--line);padding:10px 14px;margin:10px 0;background:var(--bg);border-radius:8px}
+.rca-item h4{margin:0 0 4px;font-size:14px}
+.rca-item .rem{color:var(--good);font-size:13px}
+.conf{font-family:monospace;color:var(--accent2)}
+.tabs-inline{display:flex;gap:8px;margin-bottom:12px}
+.tabs-inline button{background:var(--bg);color:var(--muted)}
+.tabs-inline button.on{background:var(--accent);color:#fff}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen" class="login-wrap">
+  <div class="login">
+    <h1>K8&#8209;Optimizer <span style="color:var(--accent2)">▮</span></h1>
+    <p>Autonomous Kubernetes FinOps &amp; zero-downtime optimization console.</p>
+    <div class="field"><label>Username</label><input id="u" autocomplete="username"></div>
+    <div class="field"><label>Password</label><input id="p" type="password" autocomplete="current-password"></div>
+    <button style="width:100%;padding:12px" onclick="login()">Sign in</button>
+    <div class="err" id="loginErr"></div>
+    <p class="muted" style="font-size:11px;margin-top:16px">Default: <code>admin</code> / <code>admin</code></p>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="hidden">
+  <header>
+    <div class="logo">K8&#8209;Optimizer <span class="dot">▮</span></div>
+    <div class="muted" style="font-size:12px">Autonomous FinOps · Zero-downtime</div>
+    <div class="spacer"></div>
+    <span id="who"></span>
+    <button class="ghost" onclick="logout()">Sign out</button>
+  </header>
+  <nav id="nav">
+    <button data-tab="overview" class="on" onclick="showTab('overview')">Overview</button>
+    <button data-tab="metrics" onclick="showTab('metrics')">Metrics</button>
+    <button data-tab="logs" onclick="showTab('logs')">Logs</button>
+    <button data-tab="rca" onclick="showTab('rca')">RCA</button>
+    <button data-tab="cloud" onclick="showTab('cloud')">Cloud Providers</button>
+    <button data-tab="users" onclick="showTab('users')">Users &amp; Permissions</button>
+  </nav>
+  <main id="main"></main>
+</div>
+
+<script>
+const AUTH = (o=>o)({token:null,user:null,perms:[]});
+let CACHE = {};
+
+async function api(path, opts={}){
+  const h = {"Content-Type":"application/json"};
+  if(AUTH.token) h["Authorization"] = "Bearer "+AUTH.token;
+  const r = await fetch(path, {...opts, headers:{...h, ...(opts.headers||{})}});
+  const body = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(body.error || body.message || r.status);
+  return body;
+}
+
+async function login(){
+  try{
+    const r = await api("/api/login", {method:"POST",
+      body:JSON.stringify({username:document.getElementById("u").value,
+                           password:document.getElementById("p").value})});
+    AUTH.token = r.token; AUTH.user = r.user;
+    AUTH.perms = new Set(r.user.permissions||[]);
+    document.getElementById("loginScreen").classList.add("hidden");
+    document.getElementById("app").classList.remove("hidden");
+    document.getElementById("who").textContent = r.user.username+" · "+(r.user.role||"");
+    showTab("overview");
+  }catch(e){ document.getElementById("loginErr").textContent = e.message; }
+}
+function logout(){ AUTH.token=null; location.reload(); }
+
+function can(p){ return AUTH.perms.has(p) || AUTH.user?.role==="admin"; }
+
+function h3(title, tag){ return `<h3>${title}${tag?`<span class="tag">${tag}</span>`:""}</h3>`; }
+
+function badgeFor(outcome){
+  const m = {applied:["good","applied"],blocked:["warn","blocked"],vetoed:["warn","vetoed"],
+             failed:["bad","failed"],success:["good","success"]};
+  const [c,l]=m[outcome]||["acc",outcome];
+  return `<span class="badge ${c}">${l}</span>`;
+}
+
+async function showTab(t){
+  document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("on", b.dataset.tab===t));
+  const el = document.getElementById("main");
+  el.innerHTML = `<div class="muted">Loading…</div>`;
+  try{ el.innerHTML = await renderTab(t); }catch(e){ el.innerHTML = `<div class="err">${e.message}</div>`; }
+}
+
+async function renderTab(t){
+  if(t==="overview") return renderOverview();
+  if(t==="metrics") return renderMetrics();
+  if(t==="logs") return renderLogs();
+  if(t==="rca") return renderRca();
+  if(t==="cloud") return renderCloud();
+  if(t==="users") return renderUsers();
+  return "<div>Unknown tab</div>";
+}
+
+function barChart(rows, colors){
+  if(!rows.length) return `<div class="muted">No data yet.</div>`;
+  const max = Math.max(...rows.map(r=>r.v), 1);
+  return rows.map(r=>`
+    <div class="bar-row">
+      <span class="lbl">${r.k}</span>
+      <span class="track"><span class="fill" style="width:${(r.v/max*100).toFixed(1)}%;background:${r.c||colors.auto}"></span></span>
+      <span class="val">${r.v}</span>
+    </div>`).join("");
+}
+
+/* ---------- OVERVIEW ---------- */
+async function renderOverview(){
+  let m, r;
+  try{ m = await api("/api/metrics"); }catch(e){ /* viewer may still see rca */ }
+  const s = m?.summary||{};
+  const savings = "$"+((s.applied||0)*31).toLocaleString();  // illustrative projection
+  return `
+  <div class="grid cols-4">
+    <div class="card">${h3("Actions applied")}<div class="stat">${s.applied??0}</div><div class="muted">optimization actions written to cluster</div></div>
+    <div class="card">${h3("Blocked / vetoed")}<div class="stat" style="color:var(--warn)">${s.blocked_or_vetoed??0}</div><div class="muted">guardrails held the line</div></div>
+    <div class="card">${h3("Success rate")}<div class="stat">${((s.success_rate??1)*100).toFixed(1)}<span class="unit">%</span></div><div class="muted">applied vs attempted</div></div>
+    <div class="card">${h3("Errors")}<div class="stat" style="color:${(s.errors_total||0)?'var(--bad)':'var(--good)'}">${s.errors_total??0}</div><div class="muted">in the RCA window</div></div>
+  </div>
+  <div class="grid cols-3" style="margin-top:16px">
+    <div class="card">${h3("Actions by outcome")}${m?barChart(Object.entries(m.actions_by_outcome||{}).map(([k,v])=>({k,v,c:{applied:"var(--good)",blocked:"var(--warn)",vetoed:"#f59e0b",failed:"var(--bad)"}[k]||"var(--accent)"}))):"<div class='muted'>metrics.read required</div>"}</div>
+    <div class="card">${h3("Errors by level")}${m?barChart(Object.entries(m.errors_by_level||{}).map(([k,v])=>({k,v,c:"var(--bad)"}))):""}</div>
+    <div class="card">${h3("Activity by actor")}${m?barChart(Object.entries(m.audit_by_actor||{}).map(([k,v])=>({k,v,c:"var(--violet)"}))):""}</div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    ${h3("The zero-downtime guarantee")}
+    <p class="muted">Every change passes the safety engine before it is applied: usage-floor clamping,
+    confidence gating, significance gating, PDB-aware strategy selection, and — where available —
+    <b>in-place pod resizing (KEP-1287)</b> with zero restarts. Blocked/vetoed counters above show how
+    often the guardrails refused a risky change.</p>
+  </div>`;
+}
+
+/* ---------- METRICS ---------- */
+async function renderMetrics(){
+  let m; try{ m = await api("/api/metrics"); }catch(e){ return errorCard(e,"metrics.read"); }
+  const s = m.summary;
+  return `
+  <div class="grid cols-4">
+    <div class="card">${h3("Workloads touched")}<div class="stat">${s.actions_total}</div></div>
+    <div class="card">${h3("Namespaces")}<div class="stat">${s.namespaces}</div></div>
+    <div class="card">${h3("Audit events")}<div class="stat">${s.audit_events}</div></div>
+    <div class="card">${h3("Success rate")}<div class="stat">${(s.success_rate*100).toFixed(1)}<span class="unit">%</span></div></div>
+  </div>
+  <div class="grid cols-2" style="margin-top:16px">
+    <div class="card">${h3("Actions by type")}${barChart(Object.entries(m.actions_by_type||{}).map(([k,v])=>({k,v,c:"var(--accent2)"})))}</div>
+    <div class="card">${h3("Outcome distribution")}${barChart(Object.entries(m.actions_by_outcome||{}).map(([k,v])=>({k,v,c:{applied:"var(--good)",blocked:"var(--warn)",vetoed:"#f59e0b",failed:"var(--bad)"}[k]||"var(--accent)"})))}</div>
+  </div>`;
+}
+
+/* ---------- LOGS ---------- */
+let LOG_KIND = "actions";
+async function renderLogs(){
+  const kindMap = {actions:["Action log","applied VPA/HPA/patch operations"],audit:["Audit trail","who did what"],errors:["Error log","failures for RCA"]};
+  const rows = await api("/api/logs/"+LOG_KIND+"?limit=200");
+  const headers = {
+    actions:["ts","workload","action","outcome"],
+    audit:["ts","actor","action","resource"],
+    errors:["ts","source","level","message"]
+  }[LOG_KIND];
+  const body = rows.rows.map(r=>{
+    if(LOG_KIND==="actions") return `<tr><td class="mono">${r.ts}</td><td>${r.namespace}/${r.workload}</td><td>${r.action}</td><td>${badgeFor(r.outcome)}</td></tr>`;
+    if(LOG_KIND==="audit") return `<tr><td class="mono">${r.ts}</td><td>${r.actor}</td><td>${r.action}</td><td>${r.resource}</td></tr>`;
+    return `<tr><td class="mono">${r.ts}</td><td>${r.source}</td><td><span class="badge bad">${r.level}</span></td><td class="muted">${esc(r.message)}</td></tr>`;
+  }).join("");
+  return `
+  <div class="toolbar">
+    <div class="tabs-inline">
+      ${["actions","audit","errors"].map(k=>`<button class="${LOG_KIND===k?'on':''}" onclick="LOG_KIND='${k}';showTab('logs')">${kindMap[k][0]}</button>`).join("")}
+    </div>
+    <button class="ghost" onclick="showTab('logs')">Refresh</button>
+  </div>
+  <div class="card">${h3(kindMap[LOG_KIND][1])}
+    <table><thead><tr>${headers.map(x=>`<th>${x}</th>`).join("")}</tr></thead>
+    <tbody>${body||`<tr><td colspan="${headers.length}" class="muted">No records.</td></tr>`}</tbody></table>
+  </div>`;
+}
+
+/* ---------- RCA ---------- */
+async function renderRca(){
+  const r = await api("/api/rca");
+  return `
+  <div class="card">${h3("Root-cause analysis","continuous improvement")}
+    <div class="muted" style="margin-bottom:12px">${r.summary}</div>
+    ${r.causes.map(c=>`
+      <div class="rca-item" style="border-left-color:${c.confidence>0.7?'var(--bad)':c.confidence>0.5?'var(--warn)':'var(--accent)'}">
+        <h4>${esc(c.title)} <span class="conf">${(c.confidence*100).toFixed(0)}%</span>
+          <span class="badge acc" style="float:right">${c.category}</span></h4>
+        <div class="muted">${c.evidence.map(esc).join(" · ")}</div>
+        <div class="rem">→ ${esc(c.remediation)}</div>
+      </div>`).join("") || `<div class="muted">No root causes detected — clean bill of health.</div>`}
+  </div>`;
+}
+
+/* ---------- CLOUD ---------- */
+async function renderCloud(){
+  const d = await api("/api/providers");
+  const icons = {aws:"☁️",gcp:"🌩️",azure:"⛅",oci:"🟠",onprem:"🏢"};
+  return `
+  <div class="grid cols-2">
+    ${d.providers.map(p=>`
+      <div class="card">
+        ${h3(`${icons[p.id]||""} ${p.name}`, p.kind)}
+        <div class="muted" style="margin-bottom:10px">
+          vCPU <b>$${p.default_cpu_usd_per_vcpu_hour}/hr</b> ·
+          memory <b>$${p.default_memory_usd_per_gib_month}/GiB-mo</b>
+        </div>
+        <div>${p.regions.map(g=>`<span class="pill">${g.label} <span class="muted mono">${g.name}</span></span>`).join("")}</div>
+      </div>`).join("")}
+  </div>
+  <div class="card" style="margin-top:16px">${h3("One engine, every cloud")}
+    <p class="muted">The optimization core is cloud-agnostic. Pricing adapters map each provider's
+    instance economics into the same cost engine, so savings projections are provider-accurate —
+    AWS, GCP, Azure, Oracle Cloud (OCI), and on-premises alike. Live billing feeds (CUR, BigQuery,
+    Azure Cost Exports, OCI Usage API) plug into the same interface.</p>
+  </div>`;
+}
+
+/* ---------- USERS ---------- */
+async function renderUsers(){
+  if(!can("users.manage")) return errorCard(new Error("users.manage permission required"),"users.manage");
+  const d = await api("/api/users");
+  const permList = ["workload.read","workload.write","cluster.apply","cluster.reconcile",
+    "metrics.read","logs.read","logs.write","users.manage","providers.manage","settings.manage","rca.read"];
+  const roleOpts = ["admin","optimizer","viewer","auditor"].map(r=>`<option value="${r}">${r}</option>`).join("");
+  return `
+  <div class="grid cols-2">
+    <div class="card">${h3("Users")}
+      <table><thead><tr><th>id</th><th>username</th><th>role</th><th>perms</th></tr></thead><tbody>
+      ${d.users.map(u=>`<tr>
+        <td>${u.id}</td><td>${esc(u.username)}</td>
+        <td><select onchange="setRole('${esc(u.username)}',this.value)">${roleOpts.split(`value="${u.role}"`).join(`value="${u.role}" selected`)}</select></td>
+        <td class="muted">${u.permissions.length} granted</td></tr>`).join("")}
+      </tbody></table>
+    </div>
+    <div>
+      <div class="card">${h3("Add user")}
+        <div class="field"><label>Username</label><input id="nu" placeholder="alice"></div>
+        <div class="field"><label>Password</label><input id="np" type="password" placeholder="••••••••"></div>
+        <div class="field"><label>Role</label><select id="nr">${roleOpts}</select></div>
+        <button onclick="addUser()">Create user</button>
+        <div class="err" id="addErr"></div>
+      </div>
+      <div class="card" style="margin-top:16px">${h3("Permission matrix")}
+        ${permList.map(p=>`<div style="margin:3px 0"><span class="mono muted">${p}</span></div>`).join("")}
+        <p class="muted pad-top">Permissions are dot-scoped. Roles bundle defaults; per-user overrides
+        are additive. Every mutation is written to the audit trail.</p>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function setRole(username, role){
+  await api("/api/users/"+encodeURIComponent(username)+"/role", {method:"PUT", body:JSON.stringify({role})});
+  showTab("users");
+}
+async function addUser(){
+  try{
+    await api("/api/users", {method:"POST", body:JSON.stringify({
+      username:document.getElementById("nu").value,
+      password:document.getElementById("np").value,
+      role:document.getElementById("nr").value})});
+    showTab("users");
+  }catch(e){ document.getElementById("addErr").textContent = e.message; }
+}
+
+function errorCard(e, perm){
+  return `<div class="card"><h3>Access restricted</h3><p class="err">${e.message}</p>
+    <p class="muted">This panel requires the <code>${perm}</code> permission.</p></div>`;
+}
+function esc(s){ return String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+</script>
+</body>
+</html>

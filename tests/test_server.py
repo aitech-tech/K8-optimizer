@@ -57,3 +57,65 @@ def test_http_server_routes():
     finally:
         server.shutdown()
         t.join(timeout=5)
+
+
+def test_http_server_rbac_api():
+    import threading
+    import urllib.error
+    import urllib.request
+    from http.server import HTTPServer
+
+    from k8optimizer.server import Handler, serve
+    from k8optimizer.store import Store
+    from k8optimizer.api import Api
+
+    store = Store(seed_admin=False)
+    store.create_user("admin", "admin", "admin")
+    store.create_user("peon", "pw", "viewer")
+    Handler.api = Api(store)
+
+    server = HTTPServer(("127.0.0.1", 0), Handler)
+    port = server.server_address[1]
+
+    def run():
+        server.serve_forever()
+
+    t = threading.Thread(target=run, daemon=True)
+    t.start()
+    base = f"http://127.0.0.1:{port}"
+
+    def post(path, payload, token=None):
+        req = urllib.request.Request(base + path, data=json.dumps(payload).encode(),
+                                     headers={"Content-Type": "application/json"})
+        if token:
+            req.add_header("Authorization", "Bearer " + token)
+        return urllib.request.urlopen(req)
+
+    try:
+        # login -> token
+        with post("/api/login", {"username": "admin", "password": "admin"}) as r:
+            token = json.loads(r.read())["token"]
+
+        # authorized metrics
+        req = urllib.request.Request(base + "/api/metrics",
+                                     headers={"Authorization": "Bearer " + token})
+        with urllib.request.urlopen(req) as r:
+            assert json.loads(r.read())["summary"]["actions_total"] == 0
+
+        # viewer token cannot manage users
+        with post("/api/login", {"username": "peon", "password": "pw"}) as r:
+            peon = json.loads(r.read())["token"]
+        req = urllib.request.Request(base + "/api/users",
+                                     headers={"Authorization": "Bearer " + peon})
+        try:
+            urllib.request.urlopen(req)
+            assert False, "expected 403"
+        except urllib.error.HTTPError as exc:
+            assert exc.code == 403
+
+        # dashboard served at /
+        with urllib.request.urlopen(base + "/") as r:
+            assert b"K8-Optimizer" in r.read()
+    finally:
+        server.shutdown()
+        t.join(timeout=5)
